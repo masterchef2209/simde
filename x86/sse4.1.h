@@ -2389,7 +2389,7 @@ HEDLEY_DIAGNOSTIC_POP
 /* AMD64 / x86_64
    <https://en.wikipedia.org/wiki/X86-64> */
 #if defined(__amd64__) || defined(__amd64) || defined(__x86_64__) || defined(__x86_64) || defined(_M_X66) || defined(_M_AMD64)
-#  define SIMDE_ARCH_AMD64 1
+#  define SIMDE_ARCH_AMD64 1000
 #endif
 
 /* ARM
@@ -2421,7 +2421,16 @@ HEDLEY_DIAGNOSTIC_POP
 /* AArch64
    <https://en.wikipedia.org/wiki/ARM_architecture> */
 #if defined(__aarch64__) || defined(_M_ARM64)
-#  define SIMDE_ARCH_AARCH64 10
+#  define SIMDE_ARCH_AARCH64 1000
+#endif
+
+/* ARM SIMD ISA extensions */
+#if defined(__ARM_NEON)
+#  if defined(SIMDE_ARCH_AARCH64)
+#    define SIMDE_ARCH_ARM_NEON SIMDE_ARCH_AARCH64
+#  elif defined(SIMDE_ARCH_ARM)
+#    define SIMDE_ARCH_ARM_NEON SIMDE_ARCH_ARM
+#  endif
 #endif
 
 /* Blackfin
@@ -2498,6 +2507,77 @@ HEDLEY_DIAGNOSTIC_POP
 #  define SIMDE_ARCH_X86 3
 #elif defined(_X86_) || defined(__X86__) || defined(__THW_INTEL__)
 #  define SIMDE_ARCH_X86 3
+#endif
+
+/* SIMD ISA extensions for x86/x86_64 */
+#if defined(SIMDE_ARCH_X86) || defined(SIMDE_ARCH_AMD64)
+#  if defined(_M_IX86_FP)
+#    define SIMDE_ARCH_X86_MMX
+#    if (_M_IX86_FP >= 1)
+#      define SIMDE_ARCH_X86_SSE 1
+#    endif
+#    if (_M_IX86_FP >= 2)
+#      define SIMDE_ARCH_X86_SSE2 1
+#    endif
+#  else
+#    if defined(__MMX__)
+#      define SIMDE_ARCH_X86_MMX 1
+#    endif
+#    if defined(__SSE__)
+#      define SIMDE_ARCH_X86_SSE 1
+#    endif
+#    if defined(__SSE2__)
+#      define SIMDE_ARCH_X86_SSE2 1
+#    endif
+#  endif
+#  if defined(__SSE3__)
+#    define SIMDE_ARCH_X86_SSE3 1
+#  endif
+#  if defined(__SSSE3__)
+#    define SIMDE_ARCH_X86_SSSE3 1
+#  endif
+#  if defined(__SSE4_1__)
+#    define SIMDE_ARCH_X86_SSE4_1 1
+#  endif
+#  if defined(__SSE4_2__)
+#    define SIMDE_ARCH_X86_SSE4_2 1
+#  endif
+#  if defined(__AVX__)
+#    define SIMDE_ARCH_X86_AVX 1
+#    if !defined(SIMDE_ARCH_X86_SSE3)
+#      define SIMDE_ARCH_X86_SSE3 1
+#    endif
+#    if !defined(SIMDE_ARCH_X86_SSE4_1)
+#      define SIMDE_ARCH_X86_SSE4_1 1
+#    endif
+#    if !defined(SIMDE_ARCH_X86_SSE4_1)
+#      define SIMDE_ARCH_X86_SSE4_2 1
+#    endif
+#  endif
+#  if defined(__AVX2__)
+#    define SIMDE_ARCH_X86_AVX2 1
+#  endif
+#  if defined(__FMA__)
+#    define SIMDE_ARCH_X86_FMA 1
+#    if !defined(SIMDE_ARCH_X86_AVX)
+#      define SIMDE_ARCH_X86_AVX 1
+#    endif
+#  endif
+#  if defined(__AVX512BW__)
+#    define SIMDE_ARCH_X86_AVX512BW 1
+#  endif
+#  if defined(__AVX512CD__)
+#    define SIMDE_ARCH_X86_AVX512CD 1
+#  endif
+#  if defined(__AVX512DQ__)
+#    define SIMDE_ARCH_X86_AVX512DQ 1
+#  endif
+#  if defined(__AVX512F__)
+#    define SIMDE_ARCH_X86_AVX512F 1
+#  endif
+#  if defined(__AVX512VL__)
+#    define SIMDE_ARCH_X86_AVX512VL 1
+#  endif
 #endif
 
 /* Itanium
@@ -3123,17 +3203,22 @@ HEDLEY_STATIC_ASSERT(sizeof(simde_float64) == 8, "Unable to find 64-bit floating
    start only defining them for problematic compiler versions. */
 
 #if !defined(SIMDE_IGNORE_COMPILER_BUGS)
-#  if !HEDLEY_GCC_VERSION_CHECK(4,9,0)
-#    define SIMDE_BUG_GCC_REV_208793
-#  endif
-#  if !HEDLEY_GCC_VERSION_CHECK(5,0,0)
-#    define SIMDE_BUG_GCC_BAD_MM_SRA_EPI32 /* TODO: find relevant bug or commit */
-#  endif
-#  if !HEDLEY_GCC_VERSION_CHECK(4,6,0)
-#    define SIMDE_BUG_GCC_BAD_MM_EXTRACT_EPI8 /* TODO: find relevant bug or commit */
-#  endif
-#  if !HEDLEY_GCC_VERSION_CHECK(10,0,0)
-#    define SIMDE_BUG_GCC_REV_274313
+#  if defined(HEDLEY_GCC_VERSION)
+#    if !HEDLEY_GCC_VERSION_CHECK(4,9,0)
+#      define SIMDE_BUG_GCC_REV_208793
+#    endif
+#    if !HEDLEY_GCC_VERSION_CHECK(5,0,0)
+#      define SIMDE_BUG_GCC_BAD_MM_SRA_EPI32 /* TODO: find relevant bug or commit */
+#    endif
+#    if !HEDLEY_GCC_VERSION_CHECK(4,6,0)
+#      define SIMDE_BUG_GCC_BAD_MM_EXTRACT_EPI8 /* TODO: find relevant bug or commit */
+#    endif
+#    if !HEDLEY_GCC_VERSION_CHECK(10,0,0)
+#      define SIMDE_BUG_GCC_REV_274313
+#    endif
+#    if !HEDLEY_GCC_VERSION_CHECK(8,0,0) && defined(SIMDE_ARCH_ARM_NEON)
+#      define SIMDE_BUG_GCC_ARM_SHIFT_SCALAR
+#    endif
 #  endif
 #  if defined(HEDLEY_EMSCRIPTEN_VERSION)
 #    define SIMDE_BUG_EMSCRIPTEN_MISSING_IMPL /* Placeholder for (as yet) unfiled issues. */
@@ -3149,9 +3234,9 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 
 #  if defined(SIMDE_MMX_FORCE_NATIVE)
 #    define SIMDE_MMX_NATIVE
-#  elif (defined(__MMX__) || (defined(_MSC_VER) && defined(_M_IX86))) && !defined(SIMDE_MMX_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
+#  elif defined(SIMDE_ARCH_X86_MMX) && !defined(SIMDE_MMX_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_MMX_NATIVE
-#  elif defined(__ARM_NEON) && !defined(SIMDE_MMX_NO_NEON) && !defined(SIMDE_NO_NEON)
+#  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_MMX_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_MMX_NEON
 #  endif
 
@@ -5364,15 +5449,9 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  if defined(SIMDE_SSE_NATIVE)
 #    undef SIMDE_SSE_NATIVE
 #  endif
-#  if defined(SIMDE_SSE_FORCE_NATIVE)
+#  if defined(SIMDE_ARCH_X86_SSE) && !defined(SIMDE_SSE_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_SSE_NATIVE
-#  elif defined(__SSE__) && !defined(SIMDE_SSE_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
-#    define SIMDE_SSE_NATIVE
-#  elif defined(_M_IX86_FP) && !defined(SIMDE_SSE_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
-#    if (_M_IX86_FP >= 1)
-#      define SIMDE_SSE_NATIVE
-#    endif
-#  elif defined(__ARM_NEON) && !defined(SIMDE_SSE_NO_NEON) && !defined(SIMDE_NO_NEON)
+#  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_SSE_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSE_NEON
 #  endif
 
@@ -8524,7 +8603,7 @@ simde_mm_ucomineq_ss (simde__m128 a, simde__m128 b) {
 #    if __has_builtin(__builtin_ia32_undef128)
 #      define SIMDE__HAVE_UNDEFINED128
 #    endif
-#  elif !defined(__PGI) && !defined(SIMDE_BUG_GCC_REV_208793)
+#  elif !defined(__PGI) && !defined(SIMDE_BUG_GCC_REV_208793) && !defined(_MSC_VER)
 #    define SIMDE__HAVE_UNDEFINED128
 #  endif
 #endif
@@ -8866,14 +8945,9 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  if defined(SIMDE_SSE2_NATIVE)
 #    undef SIMDE_SSE2_NATIVE
 #  endif
-#  if defined(SIMDE_SSE2_FORCE_NATIVE)
+#  if defined(SIMDE_ARCH_X86_SSE2) && !defined(SIMDE_SSE2_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_SSE2_NATIVE
-#  elif !defined(SIMDE_SSE2_NO_NATIVE) && !defined(SIMDE_NO_NATIVE) && ( \
-        defined(__SSE2__)  || \
-        (defined(_M_IX86_FP) && (_M_IX86_FP >= 2)) \
-      )
-#    define SIMDE_SSE2_NATIVE
-#  elif defined(__ARM_NEON) && !defined(SIMDE_SSE2_NO_NEON) && !defined(SIMDE_NO_NEON)
+#  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_SSE2_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSE2_NEON
 #  endif
 
@@ -12944,8 +13018,7 @@ simde_mm_sll_epi64 (simde__m128i a, simde__m128i count) {
   if (count_.u64[0] > 63)
     return simde_mm_setzero_si128();
 
-#if defined(SIMDE_VECTOR_SUBSCRIPT_SCALAR) && \
-  (!defined(SIMDE_ARCH_AARCH64) || !defined(HEDLEY_GCC_VERSION) || HEDLEY_GCC_VERSION_CHECK(8,0,0))
+#if defined(SIMDE_VECTOR_SUBSCRIPT_SCALAR) && !defined(SIMDE_BUG_GCC_ARM_SHIFT_SCALAR)
   /* GCC ≤ 7 on AArch64 generates an ICE here */
   r_.u64 = (a_.u64 << count_.u64[0]);
 #else
@@ -14468,11 +14541,9 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  if defined(SIMDE_SSE3_NATIVE)
 #    undef SIMDE_SSE3_NATIVE
 #  endif
-#  if defined(SIMDE_SSE3_FORCE_NATIVE)
+#  if defined(SIMDE_ARCH_X86_SSE3) && !defined(SIMDE_SSE3_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_SSE3_NATIVE
-#  elif defined(__SSE3__) && (!defined(SIMDE_SSE3_NO_NATIVE) && !defined(SIMDE_NO_NATIVE))
-#    define SIMDE_SSE3_NATIVE
-#  elif defined(__ARM_NEON) && !defined(SIMDE_SSE3_NO_NEON) && !defined(SIMDE_NO_NEON)
+#  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_SSE3_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSE3_NEON
 #  endif
 
@@ -14742,11 +14813,9 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  if defined(SIMDE_SSSE3_NATIVE)
 #    undef SIMDE_SSSE3_NATIVE
 #  endif
-#  if defined(SIMDE_SSSE3_FORCE_NATIVE)
+#  if defined(SIMDE_ARCH_X86_SSSE3) && !defined(SIMDE_SSSE3_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_SSSE3_NATIVE
-#  elif defined(__SSSE3__) && !defined(SIMDE_SSSE3_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
-#    define SIMDE_SSSE3_NATIVE
-#  elif defined(__ARM_NEON) && !defined(SIMDE_SSSE3_NO_NEON) && !defined(SIMDE_NO_NEON)
+#  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_SSSE3_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSSE3_NEON
 #  endif
 
@@ -15563,9 +15632,7 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  if defined(SIMDE_SSE4_1_NATIVE)
 #    undef SIMDE_SSE4_1_NATIVE
 #  endif
-#  if defined(SIMDE_SSE4_1_FORCE_NATIVE)
-#    define SIMDE_SSE4_1_NATIVE
-#  elif defined(__SSE4_1__) && !defined(SIMDE_SSE4_1_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
+#  if defined(SIMDE_ARCH_X86_SSE4_1) && !defined(SIMDE_SSE4_1_NO_NATIVE) && !defined(SIMDE_NO_NATIVE)
 #    define SIMDE_SSE4_1_NATIVE
 #  elif defined(__ARM_NEON) && !defined(SIMDE_SSE4_1_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSE4_1_NEON
