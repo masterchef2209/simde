@@ -3184,7 +3184,13 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #    define SIMDE_MMX_NEON
 #  endif
 
-#  if defined(SIMDE_MMX_NATIVE)
+#  if defined(SIMDE_X86_MMX_NATIVE)
+#    define SIMDE_MMX_USE_NATIVE_TYPE
+#  elif !defined(SIMDE_ENABLE_NATIVE_ALIASES) && (defined(SIMDE_ARCH_X86_SSE) || defined(SIMDE_ARCH_X86_SSE2))
+#    define SIMDE_MMX_USE_NATIVE_TYPE
+#  endif
+
+#  if defined(SIMDE_MMX_USE_NATIVE_TYPE)
 #    include <mmintrin.h>
 #  else
 #    if defined(SIMDE_MMX_NEON)
@@ -3225,9 +3231,10 @@ typedef union {
   SIMDE_ALIGN(8) uint_fast32_t u32f[8 / sizeof(uint_fast32_t)];
 #endif
 
-#if defined(SIMDE_MMX_NATIVE)
+#if defined(SIMDE_MMX_USE_NATIVE_TYPE)
   __m64          n;
-#elif defined(SIMDE_MMX_NEON)
+#endif
+#if defined(SIMDE_MMX_NEON)
   int8x8_t       neon_i8;
   int16x4_t      neon_i16;
   int32x2_t      neon_i32;
@@ -3240,7 +3247,7 @@ typedef union {
 #endif
 } simde__m64_private;
 
-#if defined(SIMDE_MMX_NATIVE)
+#if defined(SIMDE_MMX_USE_NATIVE_TYPE)
   typedef __m64 simde__m64;
 #elif defined(SIMDE_MMX_NEON)
   typedef int32x2_t simde__m64;
@@ -3250,7 +3257,7 @@ typedef union {
   typedef simde__m64_private simde__m64;
 #endif
 
-#if !defined(SIMDE_MMX_NATIVE) && defined(SIMDE_ENABLE_NATIVE_ALIASES)
+#if !defined(SIMDE_MMX_USE_NATIVE_TYPE) && defined(SIMDE_ENABLE_NATIVE_ALIASES)
   #define SIMDE_MMX_ENABLE_NATIVE_ALIASES
   typedef simde__m64 __m64;
 #endif
@@ -14911,7 +14918,14 @@ simde_mm_abs_epi32 (simde__m128i a) {
 
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.i32) / sizeof(r_.i32[0])) ; i++) {
+    #if defined(_MSC_VER)
+      HEDLEY_DIAGNOSTIC_PUSH
+      #pragma warning(disable:4146)
+    #endif
     r_.u32[i] = (a_.i32[i] < 0) ? (- HEDLEY_STATIC_CAST(uint32_t, a_.i32[i])) : HEDLEY_STATIC_CAST(uint32_t, a_.i32[i]);
+    #if defined(_MSC_VER)
+      HEDLEY_DIAGNOSTIC_POP
+    #endif
   }
 
   return simde__m128i_from_private(r_);
