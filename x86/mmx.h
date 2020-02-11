@@ -2403,6 +2403,9 @@ HEDLEY_DIAGNOSTIC_POP
 #    if (_M_IX86_FP >= 2)
 #      define SIMDE_ARCH_X86_SSE2 1
 #    endif
+#  elif defined(_M_X64)
+#    define SIMDE_ARCH_X86_SSE 1
+#    define SIMDE_ARCH_X86_SSE2 1
 #  else
 #    if defined(__MMX__)
 #      define SIMDE_ARCH_X86_MMX 1
