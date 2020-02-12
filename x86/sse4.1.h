@@ -5540,7 +5540,7 @@ typedef union {
 #if defined(SIMDE_SSE_NATIVE)
   typedef __m128 simde__m128;
 #elif defined(SIMDE_VECTOR_SUBSCRIPT)
-  typedef simde_float32 simde__m128 SIMDE_ALIGN(16) SIMDE_VECTOR(16);
+  typedef simde_float32 simde__m128 SIMDE_ALIGN(16) SIMDE_VECTOR(16) SIMDE_MAY_ALIAS;
 #else
   typedef simde__m128_private simde__m128;
 #endif
@@ -9089,8 +9089,8 @@ typedef union {
   typedef __m128i simde__m128i;
   typedef __m128d simde__m128d;
 #elif defined(SIMDE_VECTOR_SUBSCRIPT)
-  typedef int_fast32_t simde__m128i SIMDE_ALIGN(16) SIMDE_VECTOR(16);
-  typedef simde_float64 simde__m128d SIMDE_ALIGN(16) SIMDE_VECTOR(16);
+  typedef int_fast32_t simde__m128i SIMDE_ALIGN(16) SIMDE_VECTOR(16) SIMDE_MAY_ALIAS;
+  typedef simde_float64 simde__m128d SIMDE_ALIGN(16) SIMDE_VECTOR(16) SIMDE_MAY_ALIAS;
 #else
   typedef simde__m128i_private simde__m128i;
   typedef simde__m128d_private simde__m128d;
@@ -15067,8 +15067,8 @@ simde_mm_shuffle_epi8 (simde__m128i a, simde__m128i b) {
     r_,
     a_ = simde__m128i_to_private(a),
     b_ = simde__m128i_to_private(b);
-  for (size_t i = 0 ; i < (sizeof(r_.u8) / sizeof(r_.u8[0])) ; i++) {
-    r_.u8[i] = a_.u8[b_.u8[i] & 15] * ((~(b_.u8[i]) >> 7) & 1);
+  for (size_t i = 0 ; i < (sizeof(r_.i8) / sizeof(r_.i8[0])) ; i++) {
+    r_.i8[i] = a_.i8[b_.i8[i] & 15] & (~(b_.i8[i]) >> 7);
   }
   return simde__m128i_from_private(r_);
 #endif
@@ -15088,7 +15088,7 @@ simde_mm_shuffle_pi8 (simde__m64 a, simde__m64 b) {
     a_ = simde__m64_to_private(a),
     b_ = simde__m64_to_private(b);
   for (size_t i = 0 ; i < (sizeof(r_.u8) / sizeof(r_.u8[0])) ; i++) {
-    r_.u8[i] = a_.u8[b_.u8[i] & 7] * ((~(b_.u8[i]) >> 7) & 1);
+    r_.i8[i] = a_.i8[b_.i8[i] & 7] & (~(b_.i8[i]) >> 7);
   }
   return simde__m64_from_private(r_);
 #endif
