@@ -9590,7 +9590,7 @@ simde_mm_bslli_si128 (simde__m128i a, const int imm8) {
 
   const int s = imm8 * 8;
 
-#if defined(SIMDE__HAVE_INT128)
+#if defined(SIMDE__HAVE_INT128) && defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
   r_.u128[0] = a_.u128[0] << s;
 #else
   if (s < 64) {
@@ -20755,7 +20755,7 @@ simde_mm_maskstore_ps (simde_float32 mem_addr[HEDLEY_ARRAY_PARAM(4)], simde__m12
 
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < 4 ; i++) {
-    if (mask_.i32[i] >> 31)
+    if (mask_.u32[i] >> 31)
       mem_addr[i] = a_.f32[i];
   }
 #endif
