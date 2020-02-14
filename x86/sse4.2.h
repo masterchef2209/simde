@@ -2100,257 +2100,6 @@ HEDLEY_DIAGNOSTIC_POP
 
 #endif /* !defined(HEDLEY_VERSION) || (HEDLEY_VERSION < X) */
 /* :: End hedley.h :: */
-/* :: Begin check.h :: */
-/* Check (assertions)
- * Portable Snippets - https://gitub.com/nemequ/portable-snippets
- * Created by Evan Nemerson <evan@nemerson.com>
- *
- *   To the extent possible under law, the authors have waived all
- *   copyright and related or neighboring rights to this code.  For
- *   details, see the Creative Commons Zero 1.0 Universal license at
- *   https://creativecommons.org/publicdomain/zero/1.0/
- */
-
-#if !defined(SIMDE_CHECK_H)
-#define SIMDE_CHECK_H
-
-#if !defined(SIMDE_NDEBUG) && !defined(SIMDE_DEBUG)
-#  define SIMDE_NDEBUG 1
-#endif
-
-#include <stdint.h>
-
-#if !defined(_WIN32)
-#  define SIMDE_SIZE_MODIFIER "z"
-#  define SIMDE_CHAR_MODIFIER "hh"
-#  define SIMDE_SHORT_MODIFIER "h"
-#else
-#  if defined(_M_X64) || defined(__amd64__)
-#    define SIMDE_SIZE_MODIFIER "I64"
-#  else
-#    define SIMDE_SIZE_MODIFIER ""
-#  endif
-#  define SIMDE_CHAR_MODIFIER ""
-#  define SIMDE_SHORT_MODIFIER ""
-#endif
-
-#if defined(_MSC_VER) &&  (_MSC_VER >= 1500)
-#  define SIMDE__PUSH_DISABLE_MSVC_C4127 __pragma(warning(push)) __pragma(warning(disable:4127))
-#  define SIMDE__POP_DISABLE_MSVC_C4127 __pragma(warning(pop))
-#else
-#  define SIMDE__PUSH_DISABLE_MSVC_C4127
-#  define SIMDE__POP_DISABLE_MSVC_C4127
-#endif
-
-#if !defined(simde_errorf)
-#  include <stdio.h>
-#  include <stdlib.h>
-#  define simde_errorf(format, ...) (fprintf(stderr, format, __VA_ARGS__), abort())
-#endif
-
-#define simde_error(msg) simde_errorf("%s", msg)
-
-#if defined(SIMDE_NDEBUG)
-#  if defined(SIMDE_CHECK_FAIL_DEFINED)
-#    define simde_assert(expr)
-#  else
-#    if defined(HEDLEY_ASSUME)
-#      define simde_assert(expr) HEDLEY_ASSUME(expr)
-#    elif HEDLEY_GCC_VERSION_CHECK(4,5,0)
-#      define simde_assert(expr) ((void) (!!(expr) ? 1 : (__builtin_unreachable(), 1)))
-#    elif HEDLEY_MSVC_VERSION_CHECK(13,10,0)
-#      define simde_assert(expr) __assume(expr)
-#    else
-#      define simde_assert(expr)
-#    endif
-#  endif
-#  define simde_assert_true(expr) simde_assert(expr)
-#  define simde_assert_false(expr) simde_assert(!(expr))
-#  define simde_assert_type_full(prefix, suffix, T, fmt, a, op, b) simde_assert(((a) op (b)))
-#  define simde_assert_double_equal(a, b, precision)
-#  define simde_assert_string_equal(a, b)
-#  define simde_assert_string_not_equal(a, b)
-#  define simde_assert_memory_equal(size, a, b)
-#  define simde_assert_memory_not_equal(size, a, b)
-#else
-#  define simde_assert(expr) \
-    do { \
-      if (!HEDLEY_LIKELY(expr)) { \
-        simde_error("assertion failed: " #expr "\n"); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_true(expr) \
-    do { \
-      if (!HEDLEY_LIKELY(expr)) { \
-        simde_error("assertion failed: " #expr " is not true\n"); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_false(expr) \
-    do { \
-      if (!HEDLEY_LIKELY(!(expr))) { \
-        simde_error("assertion failed: " #expr " is not false\n"); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_type_full(prefix, suffix, T, fmt, a, op, b)   \
-    do { \
-      T simde_tmp_a_ = (a); \
-      T simde_tmp_b_ = (b); \
-      if (!(simde_tmp_a_ op simde_tmp_b_)) { \
-        simde_errorf("assertion failed: %s %s %s (" prefix "%" fmt suffix " %s " prefix "%" fmt suffix ")\n", \
-                     #a, #op, #b, simde_tmp_a_, #op, simde_tmp_b_); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_double_equal(a, b, precision) \
-    do { \
-      const double simde_tmp_a_ = (a); \
-      const double simde_tmp_b_ = (b); \
-      const double simde_tmp_diff_ = ((simde_tmp_a_ - simde_tmp_b_) < 0) ? \
-        -(simde_tmp_a_ - simde_tmp_b_) : \
-        (simde_tmp_a_ - simde_tmp_b_); \
-      if (HEDLEY_UNLIKELY(simde_tmp_diff_ > 1e-##precision)) { \
-        simde_errorf("assertion failed: %s == %s (%0." #precision "g == %0." #precision "g)\n", \
-                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  include <string.h>
-#  define simde_assert_string_equal(a, b) \
-    do { \
-      const char* simde_tmp_a_ = a; \
-      const char* simde_tmp_b_ = b; \
-      if (HEDLEY_UNLIKELY(strcmp(simde_tmp_a_, simde_tmp_b_) != 0)) { \
-        simde_errorf("assertion failed: string %s == %s (\"%s\" == \"%s\")\n", \
-                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_string_not_equal(a, b) \
-    do { \
-      const char* simde_tmp_a_ = a; \
-      const char* simde_tmp_b_ = b; \
-      if (HEDLEY_UNLIKELY(strcmp(simde_tmp_a_, simde_tmp_b_) == 0)) { \
-        simde_errorf("assertion failed: string %s != %s (\"%s\" == \"%s\")\n", \
-                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_memory_equal(size, a, b) \
-    do { \
-      const unsigned char* simde_tmp_a_ = (const unsigned char*) (a); \
-      const unsigned char* simde_tmp_b_ = (const unsigned char*) (b); \
-      const size_t simde_tmp_size_ = (size); \
-      if (HEDLEY_UNLIKELY(memcmp(simde_tmp_a_, simde_tmp_b_, simde_tmp_size_)) != 0) { \
-        size_t simde_tmp_pos_; \
-        for (simde_tmp_pos_ = 0 ; simde_tmp_pos_ < simde_tmp_size_ ; simde_tmp_pos_++) { \
-          if (simde_tmp_a_[simde_tmp_pos_] != simde_tmp_b_[simde_tmp_pos_]) { \
-            simde_errorf("assertion failed: memory %s == %s, at offset %" SIMDE_SIZE_MODIFIER "u\n", \
-                         #a, #b, simde_tmp_pos_); \
-            break; \
-          } \
-        } \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-
-#  define simde_assert_memory_not_equal(size, a, b) \
-    do { \
-      const unsigned char* simde_tmp_a_ = (const unsigned char*) (a); \
-      const unsigned char* simde_tmp_b_ = (const unsigned char*) (b); \
-      const size_t simde_tmp_size_ = (size); \
-      if (HEDLEY_UNLIKELY(memcmp(simde_tmp_a_, simde_tmp_b_, simde_tmp_size_)) == 0) { \
-        simde_errorf("assertion failed: memory %s != %s (%" SIMDE_SIZE_MODIFIER "u bytes)\n", \
-                     #a, #b, simde_tmp_size_); \
-      } \
-      SIMDE__PUSH_DISABLE_MSVC_C4127 \
-    } while (0) \
-    SIMDE__POP_DISABLE_MSVC_C4127
-#endif
-
-#define simde_assert_type(T, fmt, a, op, b) \
-  simde_assert_type_full("", "", T, fmt, a, op, b)
-
-#define simde_assert_char(a, op, b) \
-  simde_assert_type_full("'\\x", "'", char, "02" SIMDE_CHAR_MODIFIER "x", a, op, b)
-#define simde_assert_uchar(a, op, b) \
-  simde_assert_type_full("'\\x", "'", unsigned char, "02" SIMDE_CHAR_MODIFIER "x", a, op, b)
-#define simde_assert_short(a, op, b) \
-  simde_assert_type(short, SIMDE_SHORT_MODIFIER "d", a, op, b)
-#define simde_assert_ushort(a, op, b) \
-  simde_assert_type(unsigned short, SIMDE_SHORT_MODIFIER "u", a, op, b)
-#define simde_assert_int(a, op, b) \
-  simde_assert_type(int, "d", a, op, b)
-#define simde_assert_uint(a, op, b) \
-  simde_assert_type(unsigned int, "u", a, op, b)
-#define simde_assert_long(a, op, b) \
-  simde_assert_type(long int, "ld", a, op, b)
-#define simde_assert_ulong(a, op, b) \
-  simde_assert_type(unsigned long int, "lu", a, op, b)
-#define simde_assert_llong(a, op, b) \
-  simde_assert_type(long long int, "lld", a, op, b)
-#define simde_assert_ullong(a, op, b) \
-  simde_assert_type(unsigned long long int, "llu", a, op, b)
-
-#define simde_assert_size(a, op, b) \
-  simde_assert_type(size_t, SIMDE_SIZE_MODIFIER "u", a, op, b)
-
-#define simde_assert_float(a, op, b) \
-  simde_assert_type(float, "f", a, op, b)
-#define simde_assert_double(a, op, b) \
-  simde_assert_type(double, "g", a, op, b)
-#define simde_assert_ptr(a, op, b) \
-  simde_assert_type(const void*, "p", a, op, b)
-
-#define simde_assert_int8(a, op, b) \
-  simde_assert_type(int8_t, PRIi8, a, op, b)
-#define simde_assert_uint8(a, op, b) \
-  simde_assert_type(uint8_t, PRIu8, a, op, b)
-#define simde_assert_int16(a, op, b) \
-  simde_assert_type(int16_t, PRIi16, a, op, b)
-#define simde_assert_uint16(a, op, b) \
-  simde_assert_type(uint16_t, PRIu16, a, op, b)
-#define simde_assert_int32(a, op, b) \
-  simde_assert_type(int32_t, PRIi32, a, op, b)
-#define simde_assert_uint32(a, op, b) \
-  simde_assert_type(uint32_t, PRIu32, a, op, b)
-#define simde_assert_int64(a, op, b) \
-  simde_assert_type(int64_t, PRIi64, a, op, b)
-#define simde_assert_uint64(a, op, b) \
-  simde_assert_type(uint64_t, PRIu64, a, op, b)
-
-#define simde_assert_ptr_equal(a, b) \
-  simde_assert_ptr(a, ==, b)
-#define simde_assert_ptr_not_equal(a, b) \
-  simde_assert_ptr(a, !=, b)
-#define simde_assert_null(ptr) \
-  simde_assert_ptr(ptr, ==, NULL)
-#define simde_assert_not_null(ptr) \
-  simde_assert_ptr(ptr, !=, NULL)
-#define simde_assert_ptr_null(ptr) \
-  simde_assert_ptr(ptr, ==, NULL)
-#define simde_assert_ptr_not_null(ptr) \
-  simde_assert_ptr(ptr, !=, NULL)
-
-#endif /* !defined(SIMDE_CHECK_H) */
-/* :: End check.h :: */
 /* :: Begin simde-arch.h :: */
 /* Architecture detection
  * Created by Evan Nemerson <evan@nemerson.com>
@@ -2784,7 +2533,7 @@ HEDLEY_DIAGNOSTIC_POP
 #endif /* !defined(SIMDE_ARCH_H) */
 /* :: End simde-arch.h :: */
 
-#include <string.h>
+#include <stddef.h>
 
 #if \
   HEDLEY_HAS_ATTRIBUTE(aligned) || \
@@ -3227,6 +2976,478 @@ HEDLEY_STATIC_ASSERT(sizeof(simde_float64) == 8, "Unable to find 64-bit floating
   SIMDE_DIAGNOSTIC_DISABLE_CONDITIONAL_UNINITIALIZED_ \
   SIMDE_DIAGNOSTIC_DISABLE_FLOAT_EQUAL_
 
+#if defined(__STDC_HOSTED__)
+#  define SIMDE_STDC_HOSTED __STDC_HOSTED__
+#else
+#  if \
+     defined(HEDLEY_PGI_VERSION_CHECK) || \
+     defined(HEDLEY_MSVC_VERSION_CHECK)
+#    define SIMDE_STDC_HOSTED 1
+#  else
+#    define SIMDE_STDC_HOSTED 0
+#  endif
+#endif
+
+/* Try to deal with environments without a standard library. */
+#if !defined(simde_memcpy) || !defined(simde_memset)
+#  if !defined(SIMDE_NO_STRING_H) && defined(__has_include)
+#    if __has_include(<string.h>)
+#      include <string.h>
+#      if !defined(simde_memcpy)
+#        define simde_memcpy(dest, src, n) memcpy(dest, src, n)
+#      endif
+#      if !defined(simde_memset)
+#        define simde_memset(s, c, n) memset(s, c, n)
+#      endif
+#    else
+#      define SIMDE_NO_STRING_H
+#    endif
+#  endif
+#endif
+#if !defined(simde_memcpy) || !defined(simde_memset)
+#  if !defined(SIMDE_NO_STRING_H) && (SIMDE_STDC_HOSTED == 1)
+#    include <string.h>
+#    if !defined(simde_memcpy)
+#      define simde_memcpy(dest, src, n) memcpy(dest, src, n)
+#    endif
+#    if !defined(simde_memset)
+#      define simde_memset(s, c, n) memset(s, c, n)
+#    endif
+#  elif (HEDLEY_HAS_BUILTIN(__builtin_memcpy) && HEDLEY_HAS_BUILTIN(__builtin_memset)) || HEDLEY_GCC_VERSION_CHECK(4,2,0)
+#    if !defined(simde_memcpy)
+#      define simde_memcpy(dest, src, n) __builtin_memcpy(dest, src, n)
+#    endif
+#    if !defined(simde_memset)
+#      define simde_memset(s, c, n) __builtin_memset(s, c, n)
+#    endif
+#  else
+
+/* These are meant to be portable, not fast.  If you're hitting them you
+ * should think about providing your own (by defining the simde_memcpy
+ * macro prior to including any SIMDe files) or submitting a patch to
+ * SIMDe so we can detect your system-provided memcpy/memset, like by
+ * adding your compiler to the checks for __builtin_memcpy and/or
+ * __builtin_memset. */
+#if !defined(simde_memcpy)
+SIMDE__FUNCTION_ATTRIBUTES
+void
+simde_memcpy_(void* dest, const void* src, size_t len) {
+  char* dest_ = HEDLEY_STATIC_CAST(char*, dest);
+  char* src_ = HEDLEY_STATIC_CAST(const char*, src);
+  for (size_t i = 0 ; i < len ; i++) {
+    dest_[i] = src_[i];
+  }
+}
+#define simde_memcpy(dest, src, n) simde_memcpy_(dest, src, n)
+#endif
+
+#if !defined(simde_memset)
+SIMDE__FUNCTION_ATTRIBUTES
+void
+simde_memset_(void* s, int c, size_t len) {
+  char* s_ = HEDLEY_STATIC_CAST(char*, s);
+  char c_ = HEDLEY_STATIC_CAST(char, c);
+  for (size_t i = 0 ; i < len ; i++) {
+    s_[i] = c_[i];
+  }
+}
+#define simde_memset(s, c, n) simde_memset_(s, c, n)
+#endif
+
+#  endif /* !defined(SIMDE_NO_STRING_H) && (SIMDE_STDC_HOSTED == 1) */
+#endif /* !defined(simde_memcpy) || !defined(simde_memset) */
+
+/* If we don't have */
+#if defined(__has_include)
+#  if __has_include(<math.h>)
+#    include <math.h>
+#  endif
+#  if __has_include(<fenv.h>)
+#    include <fenv.h>
+#  endif
+#  if __has_include(<stdlib.h>)
+#    include <stdlib.h>
+#  endif
+#elif SIMDE_STDC_HOSTED == 1
+#  include <math.h>
+#  include <stdlib.h>
+#  include <fenv.h>
+#endif
+
+#if defined(SIMDE_HAVE_MATH_H)
+#  include <math.h>
+#endif
+#if defined(SIMDE_HAVE_FENV_H)
+#  include <fenv.h>
+#endif
+#if defined(SIMDE_HAVE_STDLIB_H)
+#  include <stdlib.h>
+#endif
+
+#if !defined(SIMDE_HAVE_MATH_H) && defined(HUGE_VAL)
+#  define SIMDE_HAVE_MATH_H
+#endif
+#if !defined(SIMDE_HAVE_FENV_H) && defined(FE_DIVBYZERO)
+#  define SIMDE_HAVE_FENV_H
+#endif
+#if !defined(SIMDE_HAVE_STDLIB_H) && defined(EXIT_SUCCESS)
+#  define SIMDE_HAVE_STDLIB_H
+#endif
+
+/* :: Begin check.h :: */
+/* Check (assertions)
+ * Portable Snippets - https://gitub.com/nemequ/portable-snippets
+ * Created by Evan Nemerson <evan@nemerson.com>
+ *
+ *   To the extent possible under law, the authors have waived all
+ *   copyright and related or neighboring rights to this code.  For
+ *   details, see the Creative Commons Zero 1.0 Universal license at
+ *   https://creativecommons.org/publicdomain/zero/1.0/
+ */
+
+#if !defined(SIMDE_CHECK_H)
+#define SIMDE_CHECK_H
+
+#if !defined(SIMDE_NDEBUG) && !defined(SIMDE_DEBUG)
+#  define SIMDE_NDEBUG 1
+#endif
+
+#include <stdint.h>
+
+#if !defined(_WIN32)
+#  define SIMDE_SIZE_MODIFIER "z"
+#  define SIMDE_CHAR_MODIFIER "hh"
+#  define SIMDE_SHORT_MODIFIER "h"
+#else
+#  if defined(_M_X64) || defined(__amd64__)
+#    define SIMDE_SIZE_MODIFIER "I64"
+#  else
+#    define SIMDE_SIZE_MODIFIER ""
+#  endif
+#  define SIMDE_CHAR_MODIFIER ""
+#  define SIMDE_SHORT_MODIFIER ""
+#endif
+
+#if defined(_MSC_VER) &&  (_MSC_VER >= 1500)
+#  define SIMDE__PUSH_DISABLE_MSVC_C4127 __pragma(warning(push)) __pragma(warning(disable:4127))
+#  define SIMDE__POP_DISABLE_MSVC_C4127 __pragma(warning(pop))
+#else
+#  define SIMDE__PUSH_DISABLE_MSVC_C4127
+#  define SIMDE__POP_DISABLE_MSVC_C4127
+#endif
+
+#if !defined(simde_errorf)
+#  if defined(__has_include)
+#    if __has_include(<stdio.h>)
+#      include <stdio.h>
+#    endif
+#  elif defined(SIMDE_STDC_HOSTED)
+#    if SIMDE_STDC_HOSTED == 1
+#      include <stdio.h>
+#    endif
+#  elif defined(__STDC_HOSTED__)
+#    if __STDC_HOSTETD__ == 1
+#      include <stdio.h>
+#    endif
+#  endif
+
+/* :: Begin debug-trap.h :: */
+/* Debugging assertions and traps
+ * Portable Snippets - https://gitub.com/nemequ/portable-snippets
+ * Created by Evan Nemerson <evan@nemerson.com>
+ *
+ *   To the extent possible under law, the authors have waived all
+ *   copyright and related or neighboring rights to this code.  For
+ *   details, see the Creative Commons Zero 1.0 Universal license at
+ *   https://creativecommons.org/publicdomain/zero/1.0/
+ */
+
+#if !defined(SIMDE_DEBUG_TRAP_H)
+#define SIMDE_DEBUG_TRAP_H
+
+#if !defined(SIMDE_NDEBUG) && defined(NDEBUG) && !defined(SIMDE_DEBUG)
+#  define SIMDE_NDEBUG 1
+#endif
+
+#if defined(__has_builtin) && !defined(__ibmxl__)
+#  if __has_builtin(__builtin_debugtrap)
+#    define simde_trap() __builtin_debugtrap()
+#  elif __has_builtin(__debugbreak)
+#    define simde_trap() __debugbreak()
+#  endif
+#endif
+#if !defined(simde_trap)
+#  if defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#    define simde_trap() __debugbreak()
+#  elif defined(__ARMCC_VERSION)
+#    define simde_trap() __breakpoint(42)
+#  elif defined(__ibmxl__) || defined(__xlC__)
+#    include <builtins.h>
+#    define simde_trap() __trap(42)
+#  elif defined(__DMC__) && defined(_M_IX86)
+     static inline void simde_trap(void) { __asm int 3h; }
+#  elif defined(__i386__) || defined(__x86_64__)
+     static inline void simde_trap(void) { __asm__ __volatile__("int $03"); }
+#  elif defined(__thumb__)
+     static inline void simde_trap(void) { __asm__ __volatile__(".inst 0xde01"); }
+#  elif defined(__aarch64__)
+     static inline void simde_trap(void) { __asm__ __volatile__(".inst 0xd4200000"); }
+#  elif defined(__arm__)
+     static inline void simde_trap(void) { __asm__ __volatile__(".inst 0xe7f001f0"); }
+#  elif defined (__alpha__) && !defined(__osf__)
+     static inline void simde_trap(void) { __asm__ __volatile__("bpt"); }
+#  elif defined(_54_)
+     static inline void simde_trap(void) { __asm__ __volatile__("ESTOP"); }
+#  elif defined(_55_)
+     static inline void simde_trap(void) { __asm__ __volatile__(";\n .if (.MNEMONIC)\n ESTOP_1\n .else\n ESTOP_1()\n .endif\n NOP"); }
+#  elif defined(_64P_)
+     static inline void simde_trap(void) { __asm__ __volatile__("SWBP 0"); }
+#  elif defined(_6x_)
+     static inline void simde_trap(void) { __asm__ __volatile__("NOP\n .word 0x10000000"); }
+#  elif defined(__STDC_HOSTED__) && (__STDC_HOSTED__ == 0) && defined(__GNUC__)
+#    define simde_trap() __builtin_trap()
+#  else
+#    include <signal.h>
+#    if defined(SIGTRAP)
+#      define simde_trap() raise(SIGTRAP)
+#    else
+#      define simde_trap() raise(SIGABRT)
+#    endif
+#  endif
+#endif
+
+#if defined(HEDLEY_LIKELY)
+#  define SIMDE_DBG_LIKELY(expr) HEDLEY_LIKELY(expr)
+#elif defined(__GNUC__) && (__GNUC__ >= 3)
+#  define SIMDE_DBG_LIKELY(expr) __builtin_expect(!!(expr), 1)
+#else
+#  define SIMDE_DBG_LIKELY(expr) (!!(expr))
+#endif
+
+#if !defined(SIMDE_NDEBUG) || (SIMDE_NDEBUG == 0)
+#  define simde_dbg_assert(expr) do { \
+    if (!SIMDE_DBG_LIKELY(expr)) { \
+      simde_trap(); \
+    } \
+  } while (0)
+#else
+#  define simde_dbg_assert(expr)
+#endif
+
+#endif /* !defined(SIMDE_DEBUG_TRAP_H) */
+/* :: End debug-trap.h :: */
+
+#  if defined(EOF)
+#    define simde_errorf(format, ...) (fprintf(stderr, format, __VA_ARGS__), abort())
+#  else
+#    define simde_errorf(format, ...) (simde_trap())
+#  endif
+#endif
+
+#define simde_error(msg) simde_errorf("%s", msg)
+
+#if defined(SIMDE_NDEBUG)
+#  if defined(SIMDE_CHECK_FAIL_DEFINED)
+#    define simde_assert(expr)
+#  else
+#    if defined(HEDLEY_ASSUME)
+#      define simde_assert(expr) HEDLEY_ASSUME(expr)
+#    elif HEDLEY_GCC_VERSION_CHECK(4,5,0)
+#      define simde_assert(expr) ((void) (!!(expr) ? 1 : (__builtin_unreachable(), 1)))
+#    elif HEDLEY_MSVC_VERSION_CHECK(13,10,0)
+#      define simde_assert(expr) __assume(expr)
+#    else
+#      define simde_assert(expr)
+#    endif
+#  endif
+#  define simde_assert_true(expr) simde_assert(expr)
+#  define simde_assert_false(expr) simde_assert(!(expr))
+#  define simde_assert_type_full(prefix, suffix, T, fmt, a, op, b) simde_assert(((a) op (b)))
+#  define simde_assert_double_equal(a, b, precision)
+#  define simde_assert_string_equal(a, b)
+#  define simde_assert_string_not_equal(a, b)
+#  define simde_assert_memory_equal(size, a, b)
+#  define simde_assert_memory_not_equal(size, a, b)
+#else
+#  define simde_assert(expr) \
+    do { \
+      if (!HEDLEY_LIKELY(expr)) { \
+        simde_error("assertion failed: " #expr "\n"); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_true(expr) \
+    do { \
+      if (!HEDLEY_LIKELY(expr)) { \
+        simde_error("assertion failed: " #expr " is not true\n"); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_false(expr) \
+    do { \
+      if (!HEDLEY_LIKELY(!(expr))) { \
+        simde_error("assertion failed: " #expr " is not false\n"); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_type_full(prefix, suffix, T, fmt, a, op, b)   \
+    do { \
+      T simde_tmp_a_ = (a); \
+      T simde_tmp_b_ = (b); \
+      if (!(simde_tmp_a_ op simde_tmp_b_)) { \
+        simde_errorf("assertion failed: %s %s %s (" prefix "%" fmt suffix " %s " prefix "%" fmt suffix ")\n", \
+                     #a, #op, #b, simde_tmp_a_, #op, simde_tmp_b_); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_double_equal(a, b, precision) \
+    do { \
+      const double simde_tmp_a_ = (a); \
+      const double simde_tmp_b_ = (b); \
+      const double simde_tmp_diff_ = ((simde_tmp_a_ - simde_tmp_b_) < 0) ? \
+        -(simde_tmp_a_ - simde_tmp_b_) : \
+        (simde_tmp_a_ - simde_tmp_b_); \
+      if (HEDLEY_UNLIKELY(simde_tmp_diff_ > 1e-##precision)) { \
+        simde_errorf("assertion failed: %s == %s (%0." #precision "g == %0." #precision "g)\n", \
+                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  include <string.h>
+#  define simde_assert_string_equal(a, b) \
+    do { \
+      const char* simde_tmp_a_ = a; \
+      const char* simde_tmp_b_ = b; \
+      if (HEDLEY_UNLIKELY(strcmp(simde_tmp_a_, simde_tmp_b_) != 0)) { \
+        simde_errorf("assertion failed: string %s == %s (\"%s\" == \"%s\")\n", \
+                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_string_not_equal(a, b) \
+    do { \
+      const char* simde_tmp_a_ = a; \
+      const char* simde_tmp_b_ = b; \
+      if (HEDLEY_UNLIKELY(strcmp(simde_tmp_a_, simde_tmp_b_) == 0)) { \
+        simde_errorf("assertion failed: string %s != %s (\"%s\" == \"%s\")\n", \
+                     #a, #b, simde_tmp_a_, simde_tmp_b_); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_memory_equal(size, a, b) \
+    do { \
+      const unsigned char* simde_tmp_a_ = (const unsigned char*) (a); \
+      const unsigned char* simde_tmp_b_ = (const unsigned char*) (b); \
+      const size_t simde_tmp_size_ = (size); \
+      if (HEDLEY_UNLIKELY(memcmp(simde_tmp_a_, simde_tmp_b_, simde_tmp_size_)) != 0) { \
+        size_t simde_tmp_pos_; \
+        for (simde_tmp_pos_ = 0 ; simde_tmp_pos_ < simde_tmp_size_ ; simde_tmp_pos_++) { \
+          if (simde_tmp_a_[simde_tmp_pos_] != simde_tmp_b_[simde_tmp_pos_]) { \
+            simde_errorf("assertion failed: memory %s == %s, at offset %" SIMDE_SIZE_MODIFIER "u\n", \
+                         #a, #b, simde_tmp_pos_); \
+            break; \
+          } \
+        } \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+
+#  define simde_assert_memory_not_equal(size, a, b) \
+    do { \
+      const unsigned char* simde_tmp_a_ = (const unsigned char*) (a); \
+      const unsigned char* simde_tmp_b_ = (const unsigned char*) (b); \
+      const size_t simde_tmp_size_ = (size); \
+      if (HEDLEY_UNLIKELY(memcmp(simde_tmp_a_, simde_tmp_b_, simde_tmp_size_)) == 0) { \
+        simde_errorf("assertion failed: memory %s != %s (%" SIMDE_SIZE_MODIFIER "u bytes)\n", \
+                     #a, #b, simde_tmp_size_); \
+      } \
+      SIMDE__PUSH_DISABLE_MSVC_C4127 \
+    } while (0) \
+    SIMDE__POP_DISABLE_MSVC_C4127
+#endif
+
+#define simde_assert_type(T, fmt, a, op, b) \
+  simde_assert_type_full("", "", T, fmt, a, op, b)
+
+#define simde_assert_char(a, op, b) \
+  simde_assert_type_full("'\\x", "'", char, "02" SIMDE_CHAR_MODIFIER "x", a, op, b)
+#define simde_assert_uchar(a, op, b) \
+  simde_assert_type_full("'\\x", "'", unsigned char, "02" SIMDE_CHAR_MODIFIER "x", a, op, b)
+#define simde_assert_short(a, op, b) \
+  simde_assert_type(short, SIMDE_SHORT_MODIFIER "d", a, op, b)
+#define simde_assert_ushort(a, op, b) \
+  simde_assert_type(unsigned short, SIMDE_SHORT_MODIFIER "u", a, op, b)
+#define simde_assert_int(a, op, b) \
+  simde_assert_type(int, "d", a, op, b)
+#define simde_assert_uint(a, op, b) \
+  simde_assert_type(unsigned int, "u", a, op, b)
+#define simde_assert_long(a, op, b) \
+  simde_assert_type(long int, "ld", a, op, b)
+#define simde_assert_ulong(a, op, b) \
+  simde_assert_type(unsigned long int, "lu", a, op, b)
+#define simde_assert_llong(a, op, b) \
+  simde_assert_type(long long int, "lld", a, op, b)
+#define simde_assert_ullong(a, op, b) \
+  simde_assert_type(unsigned long long int, "llu", a, op, b)
+
+#define simde_assert_size(a, op, b) \
+  simde_assert_type(size_t, SIMDE_SIZE_MODIFIER "u", a, op, b)
+
+#define simde_assert_float(a, op, b) \
+  simde_assert_type(float, "f", a, op, b)
+#define simde_assert_double(a, op, b) \
+  simde_assert_type(double, "g", a, op, b)
+#define simde_assert_ptr(a, op, b) \
+  simde_assert_type(const void*, "p", a, op, b)
+
+#define simde_assert_int8(a, op, b) \
+  simde_assert_type(int8_t, PRIi8, a, op, b)
+#define simde_assert_uint8(a, op, b) \
+  simde_assert_type(uint8_t, PRIu8, a, op, b)
+#define simde_assert_int16(a, op, b) \
+  simde_assert_type(int16_t, PRIi16, a, op, b)
+#define simde_assert_uint16(a, op, b) \
+  simde_assert_type(uint16_t, PRIu16, a, op, b)
+#define simde_assert_int32(a, op, b) \
+  simde_assert_type(int32_t, PRIi32, a, op, b)
+#define simde_assert_uint32(a, op, b) \
+  simde_assert_type(uint32_t, PRIu32, a, op, b)
+#define simde_assert_int64(a, op, b) \
+  simde_assert_type(int64_t, PRIi64, a, op, b)
+#define simde_assert_uint64(a, op, b) \
+  simde_assert_type(uint64_t, PRIu64, a, op, b)
+
+#define simde_assert_ptr_equal(a, b) \
+  simde_assert_ptr(a, ==, b)
+#define simde_assert_ptr_not_equal(a, b) \
+  simde_assert_ptr(a, !=, b)
+#define simde_assert_null(ptr) \
+  simde_assert_ptr(ptr, ==, NULL)
+#define simde_assert_not_null(ptr) \
+  simde_assert_ptr(ptr, !=, NULL)
+#define simde_assert_ptr_null(ptr) \
+  simde_assert_ptr(ptr, ==, NULL)
+#define simde_assert_ptr_not_null(ptr) \
+  simde_assert_ptr(ptr, !=, NULL)
+
+#endif /* !defined(SIMDE_CHECK_H) */
+/* :: End check.h :: */
+
 /* Sometimes we run into problems with specific versions of compilers
    which make the native versions unusable for us.  Often this is due
    to missing functions, sometimes buggy implementations, etc.  These
@@ -3247,7 +3468,7 @@ HEDLEY_STATIC_ASSERT(sizeof(simde_float64) == 8, "Unable to find 64-bit floating
 #    if !HEDLEY_GCC_VERSION_CHECK(10,0,0)
 #      define SIMDE_BUG_GCC_REV_274313
 #    endif
-#    if !HEDLEY_GCC_VERSION_CHECK(8,0,0) && defined(SIMDE_ARCH_ARM_NEON)
+#    if !HEDLEY_GCC_VERSION_CHECK(9,0,0) && defined(SIMDE_ARCH_AARCH64)
 #      define SIMDE_BUG_GCC_ARM_SHIFT_SCALAR
 #    endif
 #  endif
@@ -3286,8 +3507,6 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  endif
 #  include <stdint.h>
 #  include <limits.h>
-#  include <stdlib.h>
-#  include <string.h>
 
 SIMDE__BEGIN_DECLS
 
@@ -3360,7 +3579,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m64
 simde__m64_from_private(simde__m64_private v) {
   simde__m64 r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -3368,7 +3587,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m64_private
 simde__m64_to_private(simde__m64 v) {
   simde__m64_private r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -4483,7 +4702,7 @@ simde_mm_setone_si64 (void) {
   return _mm_andnot_ps(t, t);
 #else
   simde__m64 r;
-  memset(&r, ~0, sizeof(r));
+  simde_memset(&r, ~0, sizeof(r));
   return r;
 #endif
 }
@@ -4504,7 +4723,7 @@ simde_mm_sll_pi16 (simde__m64 a, simde__m64 count) {
   r_.i16 = a_.i16 << count_.u64[0];
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 15)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -4539,7 +4758,7 @@ simde_mm_sll_pi32 (simde__m64 a, simde__m64 count) {
   r_.i32 = a_.i32 << count_.u64[0];
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 31)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -4658,7 +4877,7 @@ simde_mm_sll_si64 (simde__m64 a, simde__m64 count) {
   r_.i64 = a_.i64 << count_.i64;
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 63)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -4690,7 +4909,7 @@ simde_mm_srl_pi16 (simde__m64 a, simde__m64 count) {
   r_.neon_u16 = vshl_u16(a_.neon_u16, vmov_n_s16(-((int16_t) vget_lane_u64(count_.neon_u64, 0))));
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 15)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -4725,7 +4944,7 @@ simde_mm_srl_pi32 (simde__m64 a, simde__m64 count) {
   r_.neon_u32 = vshl_u32(a_.neon_u32, vmov_n_s32(-((int32_t) vget_lane_u64(count_.neon_u64, 0))));
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 31)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -4844,7 +5063,7 @@ simde_mm_srl_si64 (simde__m64 a, simde__m64 count) {
   r_.u64 = a_.u64 >> count_.u64;
 #else
   if (HEDLEY_UNLIKELY(count_.u64[0] > 63)) {
-    memset(&r_, 0, sizeof(r_));
+    simde_memset(&r_, 0, sizeof(r_));
     return simde__m64_from_private(r_);
   }
 
@@ -5507,9 +5726,6 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #    endif
 #  endif
 
-#include <math.h>
-#include <fenv.h>
-
 SIMDE__BEGIN_DECLS
 
 typedef union {
@@ -5589,7 +5805,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128
 simde__m128_from_private(simde__m128_private v) {
   simde__m128 r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -5597,7 +5813,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128_private
 simde__m128_to_private(simde__m128 v) {
   simde__m128_private r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -6240,11 +6456,13 @@ simde_mm_cmpord_ps (simde__m128 a, simde__m128 b) {
   uint32x4_t ceqaa = vceqq_f32(a_.neon_f32, a_.neon_f32);
   uint32x4_t ceqbb = vceqq_f32(b_.neon_f32, b_.neon_f32);
   r_.neon_u32 = vandq_u32(ceqaa, ceqbb);
-#else
+#elif defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.u32[i] = (isnan(a_.f32[i]) || isnan(b_.f32[i])) ? UINT32_C(0) : ~UINT32_C(0);
   }
+#else
+  HEDLEY_UNREACHABLE();
 #endif
 
   return simde__m128_from_private(r_);
@@ -6265,10 +6483,14 @@ simde_mm_cmpunord_ps (simde__m128 a, simde__m128 b) {
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.u32[i] = (isnan(a_.f32[i]) || isnan(b_.f32[i])) ? ~UINT32_C(0) : UINT32_C(0);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -6290,11 +6512,15 @@ simde_mm_cmpunord_ss (simde__m128 a, simde__m128 b) {
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.u32[0] = (isnan(a_.f32[0]) || isnan(b_.f32[0])) ? ~UINT32_C(0) : UINT32_C(0);
   SIMDE__VECTORIZE
   for (size_t i = 1 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.f32[i] = a_.f32[i];
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -6547,8 +6773,10 @@ simde_mm_cvt_ss2si (simde__m128 a) {
 
   #if defined(SIMDE_SSE_NEON)
     return SIMDE_CONVERT_FTOI(int32_t, nearbyintf(vgetq_lane_f32(a_.neon_f32, 0)));
-  #else
+  #elif defined(SIMDE_HAVE_MATH_H)
     return SIMDE_CONVERT_FTOI(int32_t, nearbyintf(a_.f32[0]));
+  #else
+    HEDLEY_UNREACHABLE();
   #endif
 #endif
 }
@@ -6989,11 +7217,15 @@ simde_mm_cmpord_ss (simde__m128 a, simde__m128 b) {
     r_,
     a_ = simde__m128_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.u32[0] = (isnan(simde_mm_cvtss_f32(a)) || isnan(simde_mm_cvtss_f32(b))) ? UINT32_C(0) : ~UINT32_C(0);
   SIMDE__VECTORIZE
   for (size_t i = 1 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.u32[i] = a_.u32[i];
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -7120,8 +7352,10 @@ unsigned int
 SIMDE_MM_GET_ROUNDING_MODE(void) {
 #if defined(SIMDE_SSE_NATIVE)
   return _MM_GET_ROUNDING_MODE();
-#else
+#elif defined(SIMDE_HAVE_MATH_H)
   return (unsigned int) fegetround();
+#else
+  HEDLEY_UNREACHABLE();
 #endif
 }
 #if defined(SIMDE_SSE_ENABLE_NATIVE_ALIASES)
@@ -7298,7 +7532,7 @@ simde_mm_loadl_pi (simde__m128 a, simde__m64 const* mem_addr) {
   r_.neon_f32 = vcombine_f32(vld1_f32(HEDLEY_REINTERPRET_CAST(const float32_t*, mem_addr)), vget_high_f32(a_.neon_f32));
 #else
   simde__m64_private b_;
-  memcpy(&b_, mem_addr, sizeof(b_));
+  simde_memcpy(&b_, mem_addr, sizeof(b_));
   r_.i32[0] = b_.i32[0];
   r_.i32[1] = b_.i32[1];
   r_.i32[2] = a_.i32[2];
@@ -7915,11 +8149,13 @@ simde_mm_rsqrt_ps (simde__m128 a) {
       r_.f32[i] *= SIMDE_FLOAT32_C(1.5) - (half * r_.f32[i] * r_.f32[i]);
 #endif
   }
-#else
+#elif defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.f32[i] = 1.0f / sqrtf(a_.f32[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
 #endif
 
   return simde__m128_from_private(r_);
@@ -7955,11 +8191,13 @@ simde_mm_rsqrt_ss (simde__m128 a) {
   r_.f32[1] = a_.f32[1];
   r_.f32[2] = a_.f32[2];
   r_.f32[3] = a_.f32[3];
-#else
+#elif defined(SIMDE_HAVE_MATH_H)
   r_.f32[0] = 1.0f / sqrtf(a_.f32[0]);
   r_.f32[1] = a_.f32[1];
   r_.f32[2] = a_.f32[2];
   r_.f32[3] = a_.f32[3];
+#else
+  HEDLEY_UNREACHABLE();
 #endif
 
   return simde__m128_from_private(r_);
@@ -7981,6 +8219,7 @@ simde_mm_sad_pu8 (simde__m64 a, simde__m64 b) {
     b_ = simde__m64_to_private(b);
   uint16_t sum = 0;
 
+#if defined(SIMDE_HAVE_STDLIB_H)
   SIMDE__VECTORIZE_REDUCTION(+:sum)
   for (size_t i = 0 ; i < (sizeof(r_.u8) / sizeof(r_.u8[0])) ; i++) {
     sum += (uint8_t) abs(a_.u8[i] - b_.u8[i]);
@@ -7990,6 +8229,9 @@ simde_mm_sad_pu8 (simde__m64 a, simde__m64 b) {
   r_.i16[1] = 0;
   r_.i16[2] = 0;
   r_.i16[3] = 0;
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m64_from_private(r_);
 #endif
@@ -8078,7 +8320,7 @@ simde_mm_setzero_ps (void) {
   return vdupq_n_f32(SIMDE_FLOAT32_C(0.0));
 #else
   simde__m128 r;
-  memset(&r, 0, sizeof(r));
+  simde_memset(&r, 0, sizeof(r));
   return r;
 #endif
 }
@@ -8243,11 +8485,13 @@ simde_mm_sqrt_ps (simde__m128 a) {
   float32x4_t sq = vrecpeq_f32(recipsq);
   /* ??? use step versions of both sqrt and recip for better accuracy? */
   r_.neon_f32 = sq;
-#else
+#elif defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < sizeof(r_.f32) / sizeof(r_.f32[0]) ; i++) {
     r_.f32[i] = sqrtf(a_.f32[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
 #endif
 
   return simde__m128_from_private(r_);
@@ -8269,10 +8513,14 @@ simde_mm_sqrt_ss (simde__m128 a) {
     r_,
     a_ = simde__m128_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.f32[0] = sqrtf(a_.f32[0]);
   r_.f32[1] = a_.f32[1];
   r_.f32[2] = a_.f32[2];
   r_.f32[3] = a_.f32[3];
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -8424,7 +8672,7 @@ simde_mm_storeu_ps (simde_float32 mem_addr[4], simde__m128 a) {
 #if defined(SIMDE_SSE_NEON)
   vst1q_f32(mem_addr, a_.neon_f32);
 #else
-  memcpy(mem_addr, &a_, sizeof(a_));
+  simde_memcpy(mem_addr, &a_, sizeof(a_));
 #endif
 #endif
 }
@@ -8495,12 +8743,17 @@ simde_mm_ucomieq_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] == b_.f32[0];
+  r = a_.f32[0] == b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8518,12 +8771,17 @@ simde_mm_ucomige_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] >= b_.f32[0];
+  r = a_.f32[0] >= b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8541,12 +8799,17 @@ simde_mm_ucomigt_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] > b_.f32[0];
+  r = a_.f32[0] > b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8564,12 +8827,17 @@ simde_mm_ucomile_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] <= b_.f32[0];
+  r = a_.f32[0] <= b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8587,12 +8855,17 @@ simde_mm_ucomilt_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] < b_.f32[0];
+  r = a_.f32[0] < b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8610,12 +8883,17 @@ simde_mm_ucomineq_ss (simde__m128 a, simde__m128 b) {
   simde__m128_private
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f32[0] != b_.f32[0];
+  r = a_.f32[0] != b_.f32[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8767,7 +9045,7 @@ simde_mm_stream_ps (simde_float32 mem_addr[4], simde__m128 a) {
   vst1q_f32(mem_addr, a_.neon_f32);
 #else
   SIMDE__ASSUME_ALIGNED(mem_addr, 16);
-  memcpy(mem_addr, &a_, sizeof(a_));
+  simde_memcpy(mem_addr, &a_, sizeof(a_));
 #endif
 #endif
 }
@@ -8782,6 +9060,8 @@ simde_mm_getcsr (void) {
   return _mm_getcsr();
 #else
   uint32_t r = 0;
+
+#if defined(SIMDE_HAVE_FENV_H)
   int rounding_mode = fegetround();
 
   switch(rounding_mode) {
@@ -8805,6 +9085,9 @@ simde_mm_getcsr (void) {
       break;
 #endif
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return r;
 #endif
@@ -8999,7 +9282,6 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 
 #  include <stdint.h>
 #  include <limits.h>
-#  include <string.h>
 
 SIMDE__BEGIN_DECLS
 
@@ -9145,7 +9427,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128i
 simde__m128i_from_private(simde__m128i_private v) {
   simde__m128i r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -9153,7 +9435,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128i_private
 simde__m128i_to_private(simde__m128i v) {
   simde__m128i_private r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -9161,7 +9443,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128d
 simde__m128d_from_private(simde__m128d_private v) {
   simde__m128d r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -9169,7 +9451,7 @@ SIMDE__FUNCTION_ATTRIBUTES
 simde__m128d_private
 simde__m128d_to_private(simde__m128d v) {
   simde__m128d_private r;
-  memcpy(&r, &v, sizeof(r));
+  simde_memcpy(&r, &v, sizeof(r));
   return r;
 }
 
@@ -9862,7 +10144,7 @@ simde_mm_castpd_ps (simde__m128d a) {
   return _mm_castpd_ps(a);
 #else
   simde__m128 r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -9877,7 +10159,7 @@ simde_mm_castpd_si128 (simde__m128d a) {
   return _mm_castpd_si128(a);
 #else
   simde__m128i r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -9892,7 +10174,7 @@ simde_mm_castps_pd (simde__m128 a) {
   return _mm_castps_pd(a);
 #else
   simde__m128d r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -9907,7 +10189,7 @@ simde_mm_castps_si128 (simde__m128 a) {
   return _mm_castps_si128(a);
 #else
   simde__m128i r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -9922,7 +10204,7 @@ simde_mm_castsi128_pd (simde__m128i a) {
   return _mm_castsi128_pd(a);
 #else
   simde__m128d r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -9937,7 +10219,7 @@ simde_mm_castsi128_ps (simde__m128i a) {
   return _mm_castsi128_ps(a);
 #else
   simde__m128 r;
-  memcpy(&r, &a, sizeof(a));
+  simde_memcpy(&r, &a, sizeof(a));
   return r;
 #endif
 }
@@ -10587,10 +10869,14 @@ simde_mm_cmpord_pd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.u64[i] = (!isnan(a_.f64[i]) && !isnan(b_.f64[i])) ? ~UINT64_C(0) : UINT64_C(0);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -10622,9 +10908,13 @@ simde_mm_cmpord_sd (simde__m128d a, simde__m128d b) {
     r_,
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
- 
+
+#if defined(SIMDE_HAVE_MATH_H)
   r_.u64[0] = (!isnan(a_.f64[0]) && !isnan(b_.f64[0])) ? ~UINT64_C(0) : UINT64_C(0);
   r_.u64[1] = a_.u64[1];
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -10644,10 +10934,14 @@ simde_mm_cmpunord_pd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.u64[i] = (isnan(a_.f64[i]) || isnan(b_.f64[i])) ? ~UINT64_C(0) : UINT64_C(0);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -10667,8 +10961,12 @@ simde_mm_cmpunord_sd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.u64[0] = (isnan(a_.f64[0]) || isnan(b_.f64[0])) ? ~UINT64_C(0) : UINT64_C(0);
   r_.u64[1] = a_.u64[1];
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -10746,7 +11044,7 @@ simde_mm_cvtpd_epi32 (simde__m128d a) {
   for (size_t i = 0 ; i < (sizeof(a_.f64) / sizeof(a_.f64[0])) ; i++) {
     r_.i32[i] = (int32_t) a_.f64[i];
   }
-  memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
+  simde_memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
 #endif
 
   return simde__m128i_from_private(r_);
@@ -10798,7 +11096,7 @@ simde_mm_cvtpd_ps (simde__m128d a) {
   for (size_t i = 0 ; i < (sizeof(a_.f64) / sizeof(a_.f64[0])) ; i++) {
     r_.f32[i] = (simde_float32) a_.f64[i];
   }
-  memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
+  simde_memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
 #endif
 
   return simde__m128_from_private(r_);
@@ -11117,7 +11415,7 @@ simde_mm_cvttpd_epi32 (simde__m128d a) {
   for (size_t i = 0 ; i < (sizeof(a_.f64) / sizeof(a_.f64[0])) ; i++) {
     r_.i32[i] = SIMDE_CONVERT_FTOI(int32_t, a_.f64[i]);
   }
-  memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
+  simde_memset(&(r_.m64_private[1]), 0, sizeof(r_.m64_private[1]));
 
   return simde__m128i_from_private(r_);
 #endif
@@ -11377,7 +11675,7 @@ simde_mm_loadh_pd (simde__m128d a, simde_float64 const* mem_addr) {
     a_ = simde__m128d_to_private(a);
   simde_float64 t;
 
-  memcpy(&t, mem_addr, sizeof(t));
+  simde_memcpy(&t, mem_addr, sizeof(t));
   r_.f64[0] = a_.f64[0];
   r_.f64[1] = t;
 
@@ -11460,7 +11758,7 @@ simde_mm_loadu_pd (simde_float64 const mem_addr[HEDLEY_ARRAY_PARAM(2)]) {
 #else
   simde__m128d_private r_;
 
-  memcpy(&r_, mem_addr, sizeof(r_));
+  simde_memcpy(&r_, mem_addr, sizeof(r_));
 
   return simde__m128d_from_private(r_);
 #endif
@@ -11479,7 +11777,7 @@ simde_mm_loadu_si128 (simde__m128i const* mem_addr) {
 #elif defined(SIMDE_SSE2_NEON)
   r_.neon_i32 = vld1q_s32((int32_t const*) mem_addr);
 #else
-  memcpy(&r_, mem_addr, sizeof(r_));
+  simde_memcpy(&r_, mem_addr, sizeof(r_));
 #endif
 
   return simde__m128i_from_private(r_);
@@ -13071,10 +13369,14 @@ simde_mm_sqrt_pd (simde__m128d a) {
     r_,
     a_ = simde__m128d_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.f64[i] = sqrt(a_.f64[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -13094,8 +13396,12 @@ simde_mm_sqrt_sd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.f64[0] = sqrt(b_.f64[0]);
   r_.f64[1] = a_.f64[1];
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -13457,7 +13763,7 @@ simde_mm_store_pd (simde_float64 mem_addr[HEDLEY_ARRAY_PARAM(2)], simde__m128d a
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_store_pd(mem_addr, a);
 #else
-  memcpy(mem_addr, &a, sizeof(a));
+  simde_memcpy(mem_addr, &a, sizeof(a));
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13490,7 +13796,7 @@ simde_mm_store_sd (simde_float64* mem_addr, simde__m128d a) {
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_store_sd(mem_addr, a);
 #else
-  memcpy(mem_addr, &a, sizeof(simde_float64));
+  simde_memcpy(mem_addr, &a, sizeof(simde_float64));
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13509,7 +13815,7 @@ simde_mm_store_si128 (simde__m128i* mem_addr, simde__m128i a) {
   vst1q_s32((int32_t*) mem_addr, a_.neon_i32);
 #else
   SIMDE__ASSUME_ALIGNED(mem_addr, 16);
-  memcpy(mem_addr, &a_, sizeof(a_));
+  simde_memcpy(mem_addr, &a_, sizeof(a_));
 #endif
 #endif
 }
@@ -13590,7 +13896,7 @@ simde_mm_storeu_pd (simde_float64* mem_addr, simde__m128d a) {
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_storeu_pd(mem_addr, a);
 #else
-  memcpy(mem_addr, &a, sizeof(a));
+  simde_memcpy(mem_addr, &a, sizeof(a));
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13608,7 +13914,7 @@ simde_mm_storeu_si128 (simde__m128i* mem_addr, simde__m128i a) {
 #if defined(SIMDE_SSE2_NEON)
   vst1q_s32(HEDLEY_REINTERPRET_CAST(int32_t*, mem_addr), a_.neon_i32);
 #else
-  memcpy(mem_addr, &a_, sizeof(a_));
+  simde_memcpy(mem_addr, &a_, sizeof(a_));
 #endif
 #endif
 }
@@ -13624,7 +13930,7 @@ simde_mm_stream_pd (simde_float64 mem_addr[HEDLEY_ARRAY_PARAM(2)], simde__m128d 
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_stream_pd(mem_addr, a);
 #else
-  memcpy(mem_addr, &a, sizeof(a));
+  simde_memcpy(mem_addr, &a, sizeof(a));
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13639,7 +13945,7 @@ simde_mm_stream_si128 (simde__m128i* mem_addr, simde__m128i a) {
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_stream_si128(HEDLEY_STATIC_CAST(__m128i*, mem_addr), a);
 #else
-  memcpy(mem_addr, &a, sizeof(a));
+  simde_memcpy(mem_addr, &a, sizeof(a));
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13999,12 +14305,18 @@ simde_mm_ucomieq_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r =  a_.f64[0] == b_.f64[0];
+  r =  a_.f64[0] == b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return r;
 #endif
 }
@@ -14021,12 +14333,18 @@ simde_mm_ucomige_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f64[0] >= b_.f64[0];
+  r = a_.f64[0] >= b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return r;
 #endif
 }
@@ -14043,12 +14361,18 @@ simde_mm_ucomigt_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f64[0] > b_.f64[0];
+  r = a_.f64[0] > b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return r;
 #endif
 }
@@ -14065,13 +14389,19 @@ simde_mm_ucomile_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f64[0] <= b_.f64[0];
+  r = a_.f64[0] <= b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
   return r;
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -14087,12 +14417,18 @@ simde_mm_ucomilt_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f64[0] < b_.f64[0];
+  r = a_.f64[0] < b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return r;
 #endif
 }
@@ -14109,12 +14445,18 @@ simde_mm_ucomineq_sd (simde__m128d a, simde__m128d b) {
   simde__m128d_private
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
+  int r;
 
+#if defined(SIMDE_HAVE_FENV_H)
   fenv_t envp;
   int x = feholdexcept(&envp);
-  int r = a_.f64[0] != b_.f64[0];
+  r = a_.f64[0] != b_.f64[0];
   if (HEDLEY_LIKELY(x == 0))
     fesetenv(&envp);
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return r;
 #endif
 }
@@ -14742,7 +15084,7 @@ simde_mm_lddqu_si128 (simde__m128i const* mem_addr) {
 #if defined(SIMDE_SSE3_NEON)
   r_.neon_i32 = vld1q_s32(HEDLEY_REINTERPRET_CAST(int32_t const*, mem_addr));
 #else
-  memcpy(&r_, mem_addr, sizeof(r_));
+  simde_memcpy(&r_, mem_addr, sizeof(r_));
 #endif
 
   return simde__m128i_from_private(r_);
@@ -15896,10 +16238,15 @@ simde_mm_ceil_pd (simde__m128d a) {
     r_,
     a_ = simde__m128d_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.f64[i] = ceil(a_.f64[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return simde__m128d_from_private(r_);
 #endif
 }
@@ -15917,10 +16264,15 @@ simde_mm_ceil_ps (simde__m128 a) {
     r_,
     a_ = simde__m128_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.f32[i] = ceilf(a_.f32[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return simde__m128_from_private(r_);
 #endif
 }
@@ -15935,10 +16287,17 @@ simde_mm_ceil_sd (simde__m128d a, simde__m128d b) {
   return _mm_ceil_sd(a, b);
 #else
   simde__m128d_private
+    r_,
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
-  return simde_mm_set_pd(a_.f64[1], ceil(b_.f64[0]));
+#if defined(SIMDE_HAVE_MATH_H)
+  r_ = simde__m128d_to_private(simde_mm_set_pd(a_.f64[1], ceil(b_.f64[0])));
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
+  return simde__m128d_from_private(r_);
 #endif
 }
 #if defined(SIMDE_SSE4_1_ENABLE_NATIVE_ALIASES)
@@ -15952,10 +16311,17 @@ simde_mm_ceil_ss (simde__m128 a, simde__m128 b) {
   return _mm_ceil_ss(a, b);
 #else
   simde__m128_private
+    r_,
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
 
-  return simde_mm_set_ps(a_.f32[3], a_.f32[2], a_.f32[1], ceilf(b_.f32[0]));
+#if defined(SIMDE_HAVE_MATH_H)
+  r_ = simde__m128_to_private(simde_mm_set_ps(a_.f32[3], a_.f32[2], a_.f32[1], ceilf(b_.f32[0])));
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
+  return simde__m128_from_private(r_);
 #endif
 }
 #if defined(SIMDE_SSE4_1_ENABLE_NATIVE_ALIASES)
@@ -16376,10 +16742,14 @@ simde_mm_floor_pd (simde__m128d a) {
     r_,
     a_ = simde__m128d_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.f64[i] = floor(a_.f64[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -16398,10 +16768,14 @@ simde_mm_floor_ps (simde__m128 a) {
     r_,
     a_ = simde__m128_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.f32[i] = floorf(a_.f32[i]);
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -16421,8 +16795,12 @@ simde_mm_floor_sd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.f64[0] = floor(b_.f64[0]);
   r_.f64[1] = a_.f64[1];
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 #endif
@@ -16442,10 +16820,14 @@ simde_mm_floor_ss (simde__m128 a, simde__m128 b) {
     a_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   r_.f32[0] = floorf(b_.f32[0]);
   for (size_t i = 1 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     r_.f32[i] = a_.f32[i];
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128_from_private(r_);
 #endif
@@ -16782,6 +17164,7 @@ simde_mm_mpsadbw_epu8 (simde__m128i a, simde__m128i b, const int imm8) {
   const int a_offset = imm8 & 4;
   const int b_offset = (imm8 & 3) << 2;
 
+#if defined(SIMDE_HAVE_MATH_H)
   for (int i = 0 ; i < HEDLEY_STATIC_CAST(int, (sizeof(r_.u16) / sizeof(r_.u16[0]))) ; i++) {
     r_.u16[i] =
       HEDLEY_STATIC_CAST(uint16_t, abs(a_.u8[a_offset + i + 0] - b_.u8[b_offset + 0])) +
@@ -16789,6 +17172,9 @@ simde_mm_mpsadbw_epu8 (simde__m128i a, simde__m128i b, const int imm8) {
       HEDLEY_STATIC_CAST(uint16_t, abs(a_.u8[a_offset + i + 2] - b_.u8[b_offset + 2])) +
       HEDLEY_STATIC_CAST(uint16_t, abs(a_.u8[a_offset + i + 3] - b_.u8[b_offset + 3]));
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128i_from_private(r_);
 }
@@ -16879,6 +17265,7 @@ simde_mm_round_pd (simde__m128d a, int rounding) {
     r_,
     a_ = simde__m128d_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     switch (rounding & ~SIMDE_MM_FROUND_NO_EXC) {
       case SIMDE_MM_FROUND_TO_NEAREST_INT:
@@ -16901,6 +17288,9 @@ simde_mm_round_pd (simde__m128d a, int rounding) {
         break;
     }
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 }
@@ -16918,6 +17308,7 @@ simde_mm_round_ps (simde__m128 a, int rounding) {
     r_,
     a_ = simde__m128_to_private(a);
 
+#if defined(SIMDE_HAVE_MATH_H)
   for (size_t i = 0 ; i < (sizeof(r_.f32) / sizeof(r_.f32[0])) ; i++) {
     switch (rounding & ~SIMDE_MM_FROUND_NO_EXC) {
       case SIMDE_MM_FROUND_TO_NEAREST_INT:
@@ -16940,6 +17331,10 @@ simde_mm_round_ps (simde__m128 a, int rounding) {
         break;
     }
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return simde__m128_from_private(r_);
 }
 #if defined(SIMDE_SSE4_1_NATIVE)
@@ -16956,6 +17351,7 @@ simde_mm_round_sd (simde__m128d a, simde__m128d b, int rounding) {
     r_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   switch (rounding & ~SIMDE_MM_FROUND_NO_EXC) {
     case SIMDE_MM_FROUND_TO_NEAREST_INT:
       r_.f64[0] = nearbyint(b_.f64[0]);
@@ -16976,6 +17372,9 @@ simde_mm_round_sd (simde__m128d a, simde__m128d b, int rounding) {
       HEDLEY_UNREACHABLE();
       break;
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
 
   return simde__m128d_from_private(r_);
 }
@@ -16993,6 +17392,7 @@ simde_mm_round_ss (simde__m128 a, simde__m128 b, int rounding) {
     r_ = simde__m128_to_private(a),
     b_ = simde__m128_to_private(b);
 
+#if defined(SIMDE_HAVE_MATH_H)
   switch (rounding & ~SIMDE_MM_FROUND_NO_EXC) {
     case SIMDE_MM_FROUND_TO_NEAREST_INT:
       r_.f32[0] = nearbyintf(b_.f32[0]);
@@ -17013,6 +17413,10 @@ simde_mm_round_ss (simde__m128 a, simde__m128 b, int rounding) {
       HEDLEY_UNREACHABLE();
       break;
   }
+#else
+  HEDLEY_UNREACHABLE();
+#endif
+
   return simde__m128_from_private(r_);
 }
 #if defined(SIMDE_SSE4_1_NATIVE)
