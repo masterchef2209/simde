@@ -2777,6 +2777,14 @@ typedef unsigned __int128 simde_uint128;
 HEDLEY_DIAGNOSTIC_POP
 #endif
 
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
+#  if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#    define SIMDE_BYTE_ORDER_LE
+#  else
+#    define SIMDE_BYTE_ORDER_BE
+#  endif
+#endif
+
 /* TODO: we should at least make an attempt to detect the correct
    types for simde_float32/float64 instead of just assuming float and
    double. */
@@ -9989,30 +9997,39 @@ simde_mm_bslli_si128 (simde__m128i a, const int imm8) {
 
 SIMDE__FUNCTION_ATTRIBUTES
 simde__m128i
+simde_mm_setzero_si128 (void) {
+#if defined(SIMDE_SSE2_NATIVE)
+  return _mm_setzero_si128();
+#else
+  simde__m128i_private r_;
+
+#if defined(SIMDE_SSE2_NEON)
+  r_.neon_i32 = vdupq_n_s32(0);
+#else
+  SIMDE__VECTORIZE
+  for (size_t i = 0 ; i < (sizeof(r_.i32f) / sizeof(r_.i32f[0])) ; i++) {
+    r_.i32f[i] = 0;
+  }
+#endif
+
+  return simde__m128i_from_private(r_);
+#endif
+}
+#if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
+#  define _mm_setzero_si128() (simde_mm_setzero_si128())
+#endif
+
+SIMDE__FUNCTION_ATTRIBUTES
+simde__m128i
 simde_mm_bsrli_si128 (simde__m128i a, const int imm8) {
   simde__m128i_private
     r_,
     a_ = simde__m128i_to_private(a);
 
-  if (HEDLEY_UNLIKELY(imm8 > 15)) {
-    r_.u64[0] = 0;
-    r_.u64[1] = 0;
-    return simde__m128i_from_private(r_);
+  SIMDE__VECTORIZE
+  for (int i = 0 ; i < (sizeof(r_.i8) / sizeof(r_.i8[0])) ; i++) {
+    r_.i8[i] = ((i + imm8) < 16) ? a_.i8[i + imm8] : 0;
   }
-
-  const int s = imm8 * 8;
-
-#if defined(SIMDE__HAVE_INT128)
-  r_.u128[0] = a_.u128[0] >> s;
-#else
-  if (s < 64) {
-    r_.u64[0] = (a_.u64[0] >> s) | (a_.u64[1] << (64 - s));
-    r_.u64[1] = (a_.u64[1] >> s);
-  } else {
-    r_.u64[0] = a_.u64[1] >> (s - 64);
-    r_.u64[1] = 0;
-  }
-#endif
 
   return simde__m128i_from_private(r_);
 }
@@ -13058,30 +13075,6 @@ simde_mm_setzero_pd (void) {
 #  define _mm_setzero_pd() simde_mm_setzero_pd()
 #endif
 
-SIMDE__FUNCTION_ATTRIBUTES
-simde__m128i
-simde_mm_setzero_si128 (void) {
-#if defined(SIMDE_SSE2_NATIVE)
-  return _mm_setzero_si128();
-#else
-  simde__m128i_private r_;
-
-#if defined(SIMDE_SSE2_NEON)
-  r_.neon_i32 = vdupq_n_s32(0);
-#else
-  SIMDE__VECTORIZE
-  for (size_t i = 0 ; i < (sizeof(r_.i32f) / sizeof(r_.i32f[0])) ; i++) {
-    r_.i32f[i] = 0;
-  }
-#endif
-
-  return simde__m128i_from_private(r_);
-#endif
-}
-#if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
-#  define _mm_setzero_si128() (simde_mm_setzero_si128())
-#endif
-
 #if defined(SIMDE_DIAGNOSTIC_DISABLE_UNINITIALIZED_)
 HEDLEY_DIAGNOSTIC_PUSH
 SIMDE_DIAGNOSTIC_DISABLE_UNINITIALIZED_
@@ -15349,6 +15342,8 @@ simde_mm_alignr_epi8 (simde__m128i a, simde__m128i b, int count) {
     r_,
     a_ = simde__m128i_to_private(a),
     b_ = simde__m128i_to_private(b);
+
+#if 0 && defined(SIMDE_BYTE_ORDER_LE)
   const int bits = (8 * count) % 64;
   const int eo = count / 8;
 
@@ -15378,6 +15373,21 @@ simde_mm_alignr_epi8 (simde__m128i a, simde__m128i b, int count) {
       HEDLEY_UNREACHABLE();
       break;
   }
+#else
+  if (HEDLEY_UNLIKELY(count > 31))
+    return simde_mm_setzero_si128();
+
+  for (size_t i = 0 ; i < (sizeof(r_.i8) / sizeof(r_.i8[0])) ; i++) {
+    const int srcpos = count + i;
+    if (srcpos > 31) {
+      r_.i8[i] = 0;
+    } else if (srcpos > 15) {
+      r_.i8[i] = a_.i8[(srcpos) & 15];
+    } else {
+      r_.i8[i] = b_.i8[srcpos];
+    }
+  }
+#endif
 
   return simde__m128i_from_private(r_);
 }
@@ -15399,24 +15409,19 @@ simde_mm_alignr_pi8 (simde__m64 a, simde__m64 b, const int count) {
     a_ = simde__m64_to_private(a),
     b_ = simde__m64_to_private(b);
 
-#if defined(SIMDE__HAVE_INT128)
-HEDLEY_DIAGNOSTIC_PUSH
-SIMDE_DIAGNOSTIC_DISABLE_INT128
-  unsigned __int128 t = a_.u64[0];
-  t <<= 64;
-  t |= b_.u64[0];
-  t >>= count * 8;
-  r_.u64[0] = HEDLEY_STATIC_CAST(uint64_t, t);
-HEDLEY_DIAGNOSTIC_POP
-#else
-  const int cb = count * 8;
+  if (HEDLEY_UNLIKELY(count > 15))
+    return simde_mm_setzero_si64();
 
-  if (cb > 64) {
-    r_.u64[0] = a_.u64[0] >> (cb - 64);
-  } else {
-    r_.u64[0] = (a_.u64[0] << (64 - cb)) | (b_.u64[0] >> cb);
+  for (size_t i = 0 ; i < (sizeof(r_.i8) / sizeof(r_.i8[0])) ; i++) {
+    const int srcpos = count + i;
+    if (srcpos > 15) {
+      r_.i8[i] = 0;
+    } else if (srcpos > 7) {
+      r_.i8[i] = a_.i8[(srcpos) & 7];
+    } else {
+      r_.i8[i] = b_.i8[srcpos];
+    }
   }
-#endif
 
   return simde__m64_from_private(r_);
 }
