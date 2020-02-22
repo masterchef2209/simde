@@ -2437,6 +2437,15 @@ HEDLEY_DIAGNOSTIC_POP
 #  define SIMDE_ARCH_TMS320 280
 #endif
 
+/* WebAssembly */
+#if defined(__wasm__)
+#  define SIMDE_ARCH_WASM 1
+#endif
+
+#if defined(SIMDE_ARCH_WASM) && defined(__wasm_simd128__)
+#  define SIMDE_ARCH_WASM_SIMD128
+#endif
+
 /* Xtensa
    <https://en.wikipedia.org/wiki/> */
 #if defined(__xtensa__) || defined(__XTENSA__)
@@ -5595,6 +5604,8 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #    define SIMDE_SSE_NATIVE
 #  elif defined(SIMDE_ARCH_ARM_NEON) && !defined(SIMDE_SSE_NO_NEON) && !defined(SIMDE_NO_NEON)
 #    define SIMDE_SSE_NEON
+#  elif defined(SIMDE_ARCH_WASM_SIMD128)
+#    define SIMDE_SSE_WASM_SIMD128
 #  endif
 
 #  if defined(SIMDE_SSE_NATIVE)
@@ -5602,6 +5613,10 @@ SIMDE_DISABLE_UNWANTED_DIAGNOSTICS
 #  else
 #    if defined(SIMDE_SSE_NEON)
 #      include <arm_neon.h>
+#    endif
+
+#    if defined(SIMDE_SSE_WASM_SIMD128)
+#      include <wasm_simd128.h>
 #    endif
 
 #    if !defined(HEDLEY_INTEL_VERSION) && !defined(HEDLEY_EMSCRIPTEN_VERSION) && defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
@@ -5663,6 +5678,8 @@ typedef union {
   SIMDE_ALIGN(16) uint32x4_t     neon_u32;
   SIMDE_ALIGN(16) uint64x2_t     neon_u64;
   SIMDE_ALIGN(16) float32x4_t    neon_f32;
+#elif defined(SIMDE_SSE_WASM_SIMD128)
+  SIMDE_ALIGN(16) v128_t         wasm_v128;
 #endif
 } simde__m128_private;
 
@@ -5748,6 +5765,8 @@ simde_mm_add_ps (simde__m128 a, simde__m128 b) {
 
 #if defined(SIMDE_SSE_NEON)
   r_.neon_f32 = vaddq_f32(a_.neon_f32, b_.neon_f32);
+#elif defined(SIMDE_SSE_WASM_SIMD128)
+  r_.wasm_v128 = wasm_f32x4_add(a_.wasm_v128, b_.wasm_v128);
 #elif defined(SIMDE_VECTOR_SUBSCRIPT_OPS)
   r_.f32 = a_.f32 + b_.f32;
 #else

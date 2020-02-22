@@ -2380,6 +2380,15 @@ HEDLEY_DIAGNOSTIC_POP
 #  define SIMDE_ARCH_TMS320 280
 #endif
 
+/* WebAssembly */
+#if defined(__wasm__)
+#  define SIMDE_ARCH_WASM 1
+#endif
+
+#if defined(SIMDE_ARCH_WASM) && defined(__wasm_simd128__)
+#  define SIMDE_ARCH_WASM_SIMD128
+#endif
+
 /* Xtensa
    <https://en.wikipedia.org/wiki/> */
 #if defined(__xtensa__) || defined(__XTENSA__)
