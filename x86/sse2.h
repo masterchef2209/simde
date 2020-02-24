@@ -5687,6 +5687,9 @@ typedef union {
   SIMDE_ALIGN(16) uint32x4_t     neon_u32;
   SIMDE_ALIGN(16) uint64x2_t     neon_u64;
   SIMDE_ALIGN(16) float32x4_t    neon_f32;
+  #if defined(SIMDE_ARCH_AARCH64)
+  SIMDE_ALIGN(16) float64x2_t    neon_f64;
+  #endif
 #elif defined(SIMDE_SSE_WASM_SIMD128)
   SIMDE_ALIGN(16) v128_t         wasm_v128;
 #endif
@@ -9252,7 +9255,7 @@ typedef union {
   SIMDE_ALIGN(16) uint32x4_t     neon_u32;
   SIMDE_ALIGN(16) uint64x2_t     neon_u64;
   SIMDE_ALIGN(16) float32x4_t    neon_f32;
-  #if defined(SIMDE_ARCH_AMD64)
+  #if defined(SIMDE_ARCH_AARCH64)
   SIMDE_ALIGN(16) float64x2_t    neon_f64;
   #endif
 #endif
@@ -9302,7 +9305,7 @@ typedef union {
   SIMDE_ALIGN(16) uint32x4_t     neon_u32;
   SIMDE_ALIGN(16) uint64x2_t     neon_u64;
   SIMDE_ALIGN(16) float32x4_t    neon_f32;
-  #if defined(SIMDE_ARCH_AMD64)
+  #if defined(SIMDE_ARCH_AARCH64)
   SIMDE_ALIGN(16) float64x2_t    neon_f64;
   #endif
 #endif
@@ -9495,7 +9498,7 @@ simde_mm_add_pd (simde__m128d a, simde__m128d b) {
     a_ = simde__m128d_to_private(a),
     b_ = simde__m128d_to_private(b);
 
-#if defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AMD64)
+#if defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AARCH64)
   r_.neon_f64 = vaddq_f64(a_.neon_f64, b_.neon_f64);
 #elif defined(SIMDE_VECTOR_SUBSCRIPT_OPS)
   r_.f64 = a_.f64 + b_.f64;
@@ -13267,7 +13270,9 @@ simde_mm_sqrt_pd (simde__m128d a) {
     r_,
     a_ = simde__m128d_to_private(a);
 
-#if defined(SIMDE_HAVE_MATH_H)
+#if defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AARCH64)
+  r_.neon_f64 = vsqrtq_f64(a_.neon_f64);
+#elif defined(SIMDE_HAVE_MATH_H)
   SIMDE__VECTORIZE
   for (size_t i = 0 ; i < (sizeof(r_.f64) / sizeof(r_.f64[0])) ; i++) {
     r_.f64[i] = sqrt(a_.f64[i]);
@@ -13660,6 +13665,8 @@ simde_mm_store_pd (simde_float64 mem_addr[HEDLEY_ARRAY_PARAM(2)], simde__m128d a
 
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_store_pd(mem_addr, a);
+#elif defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AARCH64)
+  vst1q_f64(mem_addr, simde__m128d_to_private(a).neon_f64);
 #else
   simde_memcpy(mem_addr, &a, sizeof(a));
 #endif
@@ -13694,7 +13701,15 @@ simde_mm_store_sd (simde_float64* mem_addr, simde__m128d a) {
 #if defined(SIMDE_SSE2_NATIVE)
   _mm_store_sd(mem_addr, a);
 #else
-  simde_memcpy(mem_addr, &a, sizeof(simde_float64));
+  simde__m128d_private a_ = simde__m128d_to_private(a);
+
+#if defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AARCH64)
+  simde_float64 v = vgetq_lane_f64(a_.neon_f64, 0);
+  simde_memcpy(mem_addr, &v, sizeof(simde_float64));
+#else
+  simde_float64 v = a_.f64[0];
+  simde_memcpy(mem_addr, &v, sizeof(simde_float64));
+#endif
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
@@ -13710,7 +13725,7 @@ simde_mm_store_si128 (simde__m128i* mem_addr, simde__m128i a) {
   simde__m128i_private a_ = simde__m128i_to_private(a);
 
 #if defined(SIMDE_SSE2_NEON)
-  vst1q_s32((int32_t*) mem_addr, a_.neon_i32);
+  vst1q_s32(HEDLEY_REINTERPRET_CAST(int32_t*, mem_addr), a_.neon_i32);
 #else
   SIMDE__ASSUME_ALIGNED(mem_addr, 16);
   simde_memcpy(mem_addr, &a_, sizeof(a_));
@@ -13729,7 +13744,11 @@ simde_mm_storeh_pd (simde_float64* mem_addr, simde__m128d a) {
 #else
   simde__m128d_private a_ = simde__m128d_to_private(a);
 
-  *mem_addr = a_.f64[1];
+  #if defined(SIMDE_SSE2_NEON) && defined(SIMDE_ARCH_AARCH64)
+    *mem_addr = vgetq_lane_f64(a_.neon_f64, 1);
+  #else
+    *mem_addr = a_.f64[1];
+  #endif
 #endif
 }
 #if defined(SIMDE_SSE2_ENABLE_NATIVE_ALIASES)
