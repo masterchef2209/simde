@@ -1566,7 +1566,7 @@ simde_mm256_extract_epi8 (simde__m256i a, const int index)
   simde__m256i_private a_ = simde__m256i_to_private(a);
   return a_.i8[index];
 }
-#if defined(SIMDE_X86_AVX_NATIVE)
+#if defined(SIMDE_X86_AVX2_NATIVE)
   #define simde_mm256_extract_epi8(a, index) _mm256_extract_epi8(a, index)
 #endif
 #if defined(SIMDE_X86_AVX2_ENABLE_NATIVE_ALIASES)
@@ -1581,7 +1581,7 @@ simde_mm256_extract_epi16 (simde__m256i a, const int index)
   simde__m256i_private a_ = simde__m256i_to_private(a);
   return a_.i16[index];
 }
-#if defined(SIMDE_X86_AVX_NATIVE)
+#if defined(SIMDE_X86_AVX2_NATIVE)
   #define simde_mm256_extract_epi16(a, index) _mm256_extract_epi16(a, index)
 #endif
 #if defined(SIMDE_X86_AVX2_ENABLE_NATIVE_ALIASES)
@@ -1602,6 +1602,31 @@ simde_mm256_extracti128_si256 (simde__m256i a, const int imm8)
 #if defined(SIMDE_X86_AVX2_ENABLE_NATIVE_ALIASES)
   #undef _mm256_extracti128_si256
   #define _mm256_extracti128_si256(a, imm8) simde_mm256_extracti128_si256(a, imm8)
+#endif
+
+SIMDE_FUNCTION_ATTRIBUTES
+simde__m128i
+simde_mm_i32gather_epi32(const int32_t* base_addr, simde__m128i vindex, const int32_t scale) {
+  simde__m128i_private
+    vindex_ = simde__m128i_to_private(vindex),
+    r_;
+  const uint8_t* addr = HEDLEY_REINTERPRET_CAST(const uint8_t*, base_addr);
+
+  SIMDE_VECTORIZE
+  for (size_t i = 0 ; i < (sizeof(vindex_.i32) / sizeof(vindex_.i32[0])) ; i++) {
+    const uint8_t* src = addr + (HEDLEY_STATIC_CAST(size_t, vindex_.i32[i]) * scale * 8);
+    int32_t dst;
+    simde_memcpy(&dst, src, sizeof(dst));
+    r_.i32[i] = dst;
+  }
+
+  return simde__m128i_from_private(r_);
+}
+#if defined(SIMDE_X86_AVX2_NATIVE)
+  #define simde_mm_i32gather_epi32(base_addr, vindex, scale) _mm_i32gather_epi32(HEDLEY_REINTERPRET_CAST(int32_t const*, base_addr), vindex, scale)
+#endif
+#if defined(SIMDE_X86_AVX2_ENABLE_NATIVE_ALIASES)
+  #define _mm_i32gather_epi32(base_addr, vindex, scale) simde_mm_i32gather_epi32(HEDLEY_REINTERPRET_CAST(int32_t const*, base_addr), vindex, scale)
 #endif
 
 SIMDE_FUNCTION_ATTRIBUTES

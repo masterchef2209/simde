@@ -6029,6 +6029,40 @@ test_simde_mm256_hsubs_epi16 (SIMDE_MUNIT_TEST_ARGS) {
   return 0;
 }
 
+static int32_t gather_buffer[4096];
+
+static int
+test_simde_mm_i32gather_epi32 (SIMDE_MUNIT_TEST_ARGS) {
+#if 0
+  static const struct {
+    const int32_t vindex[4];
+    const int32_t r[4];
+  } test_vec[] = {
+
+  };
+  for (size_t i = 0 ; i < (sizeof(gather_buffer) / sizeof(gather_buffer[0])) ; i++) { gather_buffer[i] = HEDLEY_STATIC_CAST(int32_t, i); }
+
+  for (size_t i = 0 ; i < (sizeof(test_vec) / sizeof(test_vec[0])) ; i++) {
+    simde__m128i vindex = simde_x_mm_loadu_epi32(test_vec[i].vindex);
+    simde__m128i r = simde_mm_i32gather_epi32(gather_buffer, vindex, 1);
+    simde_test_x86_assert_equal_i32x4(r, simde_x_mm_loadu_epi32(test_vec[i].r));
+  }
+
+  return 0;
+#else
+  for (size_t i = 0 ; i < (sizeof(gather_buffer) / sizeof(gather_buffer[0])) ; i++) { gather_buffer[i] = HEDLEY_STATIC_CAST(int32_t, i); }
+  fputc('\n', stdout);
+  for (int i = 0 ; i < 8 ; i++) {
+    simde__m128i b = simde_mm_srli_epi32(simde_test_x86_random_i32x4(), 24);
+    simde__m128i r = simde_mm_i32gather_epi32(gather_buffer, b, 1);
+
+    simde_test_x86_write_i32x4(2, b, SIMDE_TEST_VEC_POS_FIRST);
+    simde_test_x86_write_i32x4(2, r, SIMDE_TEST_VEC_POS_LAST);
+  }
+  return 1;
+#endif
+}
+
 static int
 test_simde_mm256_inserti128_si256 (SIMDE_MUNIT_TEST_ARGS) {
   static const struct {
@@ -14892,6 +14926,8 @@ SIMDE_TEST_FUNC_LIST_BEGIN
   SIMDE_TEST_FUNC_LIST_ENTRY(mm256_hsub_epi16)
   SIMDE_TEST_FUNC_LIST_ENTRY(mm256_hsub_epi32)
   SIMDE_TEST_FUNC_LIST_ENTRY(mm256_hsubs_epi16)
+
+  SIMDE_TEST_FUNC_LIST_ENTRY(mm_i32gather_epi32)
 
   SIMDE_TEST_FUNC_LIST_ENTRY(mm256_inserti128_si256)
 
